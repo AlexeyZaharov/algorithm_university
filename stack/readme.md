@@ -36,8 +36,3 @@
 |pop|
 |push 6|
 |print|
-
-
-
-
-
