@@ -1,8 +1,6 @@
 #include <iostream>
 #include <sstream>
-#include <queue>
 #include <vector>
-#include <cmath>
 #include <unordered_map>
 
 template <typename T>
@@ -32,20 +30,53 @@ class my_heap {
 
         while (left_child < vector.size() || right_child < vector.size()) {
             if (left_child < vector.size()) {
-                index_of_min = vector[index_of_min] < vector[left_child] ? index_of_min : left_child;
+                index_of_min = vector[index_of_min].first <= vector[left_child].first ? index_of_min : left_child;
             }
 
             if (right_child < vector.size()) {
-                index_of_min = vector[index_of_min] < vector[right_child] ? index_of_min : right_child;
+                index_of_min = vector[index_of_min].first <= vector[right_child].first ? index_of_min : right_child;
             }
 
             std::swap(vector[ind], vector[index_of_min]);
             std::swap(map[vector[ind].first], map[vector[index_of_min].first]);
 
-            ind = index_of_min;
+            if(ind != index_of_min) {
+                ind = index_of_min;
+                left_child = 2*ind + 1;
+                right_child = 2*ind + 2;
+            }
+            else {
+                break;
+            }
         }
     }
 
+    std::string elem_to_str(const size_t& ind) {
+        std::ostringstream out;
+
+        out << '[' << vector[ind].first << ' ' << vector[ind].second;
+        if (ind != 0) {
+            out << ' ' << vector[static_cast<size_t>( (ind - 1)/2 )].first;
+        }
+        out << ']';
+
+        return out.str();
+    }
+
+    void delete_elem(size_t ind) {
+        std::swap(vector[ind], vector[ vector.size() - 1]);
+        map[vector[ind].first] = ind;
+
+        long long key_of_sift_elem = vector[ind].first;
+        long long key_of_delete_elem = vector[ vector.size() - 1].first;
+
+        vector.pop_back();
+
+        sift_up(ind);
+        sift_down(map[key_of_sift_elem]);
+
+        map.erase(map.find(key_of_delete_elem));
+    }
 
 public:
     my_heap() : vector{} {}
@@ -69,15 +100,28 @@ public:
         bool success = true;
 
         if (map.find(key) != map.end()) {
-            T old_value = vector[map[key]].second;
             vector[map[key]].second = new_value;
+        }
+        else {
+            success = false;
+        }
 
-            if (old_value < new_value) {
-                sift_down(map[key]);
-            }
-            else {
-                sift_up(map[key]);
-            }
+        return success;
+    }
+
+    std::pair<long long, T> extract() {
+        std::pair<long long, T> root = vector[0];
+
+        delete_elem(0);
+
+        return root;
+    }
+
+    bool delete_elem_by_key(const long long& key) {
+        bool success = true;
+
+        if (map.find(key) != map.end()) {
+            delete_elem(map[key]);
         }
         else {
             success = false;
@@ -96,6 +140,48 @@ public:
         }
 
         return returned_data;
+    }
+
+    std::string print() {
+        std::ostringstream out{};
+        std::string empty_node("_");
+        size_t num_of_printed_elements = 0;
+
+        if (vector.size() == 0) {
+            out << empty_node << '\n';
+            return out.str();
+        }
+
+        for (size_t index = 0; index < vector.size(); ++index) {
+            out << elem_to_str(index);
+            ++num_of_printed_elements;
+
+            out << (((num_of_printed_elements + 1) & num_of_printed_elements) == 0 ? '\n' : ' ');
+        }
+
+        while (((num_of_printed_elements + 1) & num_of_printed_elements) != 0) {
+            ++num_of_printed_elements;
+            out << empty_node;
+            out << (((num_of_printed_elements + 1) & num_of_printed_elements) == 0 ? '\n' : ' ');
+        }
+
+        return out.str();
+    }
+
+    std::tuple<long long, size_t, T> min() const {
+        return {vector[0].first, 0, vector[0].second};
+    }
+
+    std::tuple<long long, size_t, T> max() {
+        std::pair<long long, T> max = vector[0];
+
+        for (auto& elem : vector) {
+            if (elem.first > max.first) {
+                max = elem;
+            }
+        }
+
+        return {max.first, map[max.first], max.second};
     }
 
     bool is_empty() const {
@@ -118,8 +204,8 @@ std::string test() {
 
     my_heap<std::string> my_heap;
 
-    long long key;
-    std::string data;
+    long long key{};
+    std::string data{};
 
     while (stream >> buf) {
 
@@ -142,36 +228,34 @@ std::string test() {
         else if (buf == "search" && stream.peek() != '\n' && stream >> key && stream.peek() == '\n') {
             auto tuple = my_heap.search(key);
             if (std::get<0>(tuple)) {
-                out << std::get<0>(tuple) << ' ' << std::get<1>(tuple) << ' ' << std::get<2>(tuple) <<'\n';
+                out << std::get<0>(tuple) << ' ' << std::get<1>(tuple) << ' ' << std::get<2>(tuple) << '\n';
             }
             else {
                 out << 0 << '\n';
             }
         }
         else if (buf == "delete" && stream.peek() != '\n' && stream >> key && stream.peek() == '\n' && !my_heap.is_empty()) {
-            /*bool success = my_heap.delete_node(key);
+            bool success = my_heap.delete_elem_by_key(key);
 
             if(!success) {
                 out << "error\n";
-            }*/
+            }
         }
-        else if (buf == "extract" && stream.peek() != '\n' && stream >> key && stream.peek() == '\n' && !my_heap.is_empty()) {
-            /*bool success = my_heap.extract(key);
+        else if (buf == "extract" && stream.peek() == '\n' && !my_heap.is_empty()) {
+            std::pair<long long, std::string> root = my_heap.extract();
 
-            if(!success) {
-                out << "error\n";
-            }*/
+            out << root.first << ' ' << root.second << '\n';
         }
         else if (buf == "min" && stream.peek() == '\n' && !my_heap.is_empty()) {
-            /*const node<std::string>* min = my_heap.min();
-            out << min->key << ' ' << min->data << '\n';*/
+            std::tuple<long long, size_t, std::string> min = my_heap.min();
+            out << std::get<0>(min) << ' ' << std::get<1>(min) << ' ' << std::get<2>(min) << '\n';
         }
         else if (buf == "max" && stream.peek() == '\n' && !my_heap.is_empty()) {
-            /*const node<std::string>* max = my_heap.max();
-            out << max->key << ' ' << max->data << '\n';*/
+            std::tuple<long long, size_t, std::string> max = my_heap.max();
+            out << std::get<0>(max) << ' ' << std::get<1>(max) << ' ' << std::get<2>(max) << '\n';
         }
         else if (buf == "print" && stream.peek() == '\n') {
-            //out << my_heap.print();
+            out << my_heap.print();
         }
         else {
             out << "error\n";
